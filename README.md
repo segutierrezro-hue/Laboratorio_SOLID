@@ -61,4 +61,4 @@ Además que aunque el cálculo de la comisión es lo único que queremos probar,
 
 ## 1.4 Diagrama de clases del código original
 
-![Diagrama de clases del código original](src\diagramas\UML.png)
+![Diagrama de clases del código original](src/diagramas/UML.png)
