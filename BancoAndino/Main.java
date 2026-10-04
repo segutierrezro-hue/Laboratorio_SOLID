@@ -10,7 +10,7 @@ public class Main {
         TransaccionService servicio = new TransaccionService();
         servicio.transferir(ana, luis, 150_000, "OTRO_BANCO");
 
-        new CobroCuotaManejo().cobrarMensual(List.of(ana, luis));
+        new CobroCuotaManejo().cobrarMensual(List.of(ana, luis, cdtAna));
 
         List<ProductoBancario> productos =
                 List.of(new TarjetaCredito(3_000_000), new CreditoVivienda(120_000_000));
