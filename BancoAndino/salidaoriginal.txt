@@ -1,0 +1,15 @@
+[ORACLE] Conectando a jdbc:oracle:thin:@prod-db:1521/BANCO...
+[ORACLE] INSERT INTO transacciones VALUES ('001-1', '001-2', 150000.0, 7500.0)
+===== BANCO ANDINO - COMPROBANTE =====
+Origen: 001-1
+Destino: 001-2
+Monto: $150000.0
+Comisión: $7500.0
+======================================
+[SMS] Conectando al proveedor de mensajería...
+[SMS] Para Ana: Transferiste $150000.0 a la cuenta 001-2
+[AUDITORIA] 2026-10-04T15:48:51.472305 OTRO_BANCO 001-1 -> 001-2 $150000.0
+Cuota de manejo cobrada a 001-1
+Cuota de manejo cobrada a 001-2
+Tarjeta - deuda: $0.0
+Crédito vivienda - pendiente: $1.2E8
