@@ -89,4 +89,18 @@ TransaccionService ya no conoce ninguna clase concreta de infraestructura, ya qu
 
 Quien decide si se usa Oracle o SMS es el Main, el único lugar donde se arma el sistema con new. Esto permite cambiar de proveedor sin tocar el servicio.
 
-Y el experimento 2 ya es posible porque como el servicio recibe sus dependencias por el constructor, podemos pasarle versiones falsas que guardan los datos en memoria, sin Oracle y sin SMS.
+Y el experimento 2 ya es posible porque como el servicio recibe sus dependencias por el constructor, podemos pasarle versiones falsas que guardan los datos en memoria, sin Oracle y sin SMS. Se puede evidenciar en el main que esta entre comillas}
+
+
+## 3 Pruebas unitarias
+
+**¿Cuánto tardan en ejecutarse todas sus pruebas?**
+![Pruebas unitarias](src/imagenes/TiemposTest.png)
+
+**¿Cuántas líneas de TransaccionService tuvieron que cambiar para poder probarla?** Desde el código base hasta ahorita se agregaron 27 líneas y se eliminaron 29 (56 líneas tocadas en total). Esos cambios fueron la separación del comprobante y la auditoría (S), el reemplazo del switch por políticas de comisión (O) y el cambio de tipos en el parámetro de origen (L). El punto D fue el decisivo, con 21 líneas tocadas (15 agregadas y 6 eliminadas), ya que se quitaron los new, los campos pasaron a ser interfaces y se agregó el constructor que recibe las dependencias y eso fue lo que permitió reemplazar Oracle y el SMS por dobles de prueba.
+
+Para encontrar estas pruebas se reviso el historial de los commits a través de los comandos:
+(git log --oneline) que nos suelta todas las ids para poder de esta manera usar la diferencia que hubo en los archivos, por medio del comando (git diff 5ecb521 e580314 --stat -- "*TransaccionService.java) pudimos hallar los cambios realizados desde el inicio del laboratorio y con (git diff 85b6980 e580314 --stat -- '*TransaccionService.java') se hallan los cambios para dentro del control I al control D
+
+**¿Qué habría pasado en el bloque 1?** No habríamos podido escribirlas, porque cada prueba de transferencia habría tenido que conectarse a Oracle y mandar un SMS real y tampoco habríamos podido comprobar que "no se guardó nada ni se notificó" cuando falta saldo, porque no había forma de observar ni reemplazar esos efectos.
+
