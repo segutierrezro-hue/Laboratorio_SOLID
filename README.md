@@ -1,5 +1,5 @@
 # Laboratorio_SOLID
-Desarrollo del Laboratorio L2: SOLID , Taller integrador: el backend de Banco Andino
+Desarrollo del Laboratorio L2: SOLID , Taller integrador: el backend de Banco Andino Por: Sebastián Gutierrez y Nicolas Jaramillo
 
 ##  1.1 Tabla de hallazgos
 
