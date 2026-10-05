@@ -17,10 +17,11 @@ public class Main {
         servicio.transferir(ana, luis, 150_000, "OTRO_BANCO");
 
         new CobroCuotaManejo().cobrarMensual(List.of(ana, luis));
-        // new CobroCuotaManejo().cobrarMensual(List.of(ana, luis, cdtAna)); // Sale primero el error antes de compilar
+        // new CobroCuotaManejo().cobrarMensual(List.of(ana, luis, cdtAna)); // NO compila
+        new GeneradorExtractos().imprimir(List.of(ana, new TarjetaCredito(3_000_000), new CreditoVivienda(120_000_000)));
 
-        List<ProductoBancario> productos =
+        List<Extractable> productos =
             List.of(new TarjetaCredito(3_000_000), new CreditoVivienda(120_000_000));
-        for (ProductoBancario p : productos) System.out.println(p.generarExtracto());
+        new GeneradorExtractos().imprimir(productos);
     }
 }

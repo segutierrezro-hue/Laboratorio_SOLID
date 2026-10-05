@@ -1,4 +1,4 @@
-public abstract class Cuenta {
+public abstract class Cuenta implements Extractable {
     protected final String numero;
     protected final String titular;
     protected double saldo;
@@ -16,5 +16,10 @@ public abstract class Cuenta {
     public void depositar(double monto) {
         if (monto <= 0) throw new IllegalArgumentException("Monto inválido");
         saldo += monto;
+    }
+
+    @Override
+    public String generarExtracto() {
+        return "Cuenta " + numero + " - saldo: $" + saldo;
     }
 }

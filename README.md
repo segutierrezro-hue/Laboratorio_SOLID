@@ -79,4 +79,6 @@ El problema ahora se detecta al compilar porque CDT ya no es una CuentaConRetiro
 
 La propuesta de "envolver el retiro en un try/catch e ignorar los CDT" no resuelve el problema de diseño ya que el CDT seguiría diciendo que es una cuenta de la que se puede retirar, y todo el que use cuentas tendría que acordarse de capturar la excepción. Además, ese try/catch también escondería errores reales, como un fallo de saldo en otra cuenta.
 
+## 2.3 Punto de control I
 
+Sí se logro que un mismo generador de extractos funcione para cuentas, tarjetas y créditos. La interfaz que lo hizo posible es Extractable, que solo tiene el método generarExtracto. El GeneradorExtractos no necesita conocer los demás métodos de cada producto como lo son intereses, pagos, avances y retiros, porque solo pide lo que realmente usa, ya que antes con ProductoBancario, cualquier clase que quisiera ser un producto cargaba con cinco métodos aunque no los necesitara.
