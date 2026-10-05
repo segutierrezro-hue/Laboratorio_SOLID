@@ -8,7 +8,8 @@ public class Main {
         Map<String, PoliticaComision> comisiones = Map.of(
             "MISMO_BANCO", new ComisionMismoBanco(),
             "OTRO_BANCO", new ComisionOtroBanco(),
-            "INTERNACIONAL", new ComisionInternacional());
+            "INTERNACIONAL", new ComisionInternacional(),
+            "LLAVE", new ComisionLlave());
 
         TransaccionService servicio = new TransaccionService(
             comisiones,
@@ -37,6 +38,11 @@ public class Main {
 
         servicio.transferir(ana, luis, 150_000, "OTRO_BANCO");
 
+        // R1: transferencia por llave, sin comisión (se descuenta exactamente el monto)
+        double saldoAntes = ana.getSaldo();
+        servicio.transferir(ana, luis, 50_000, "LLAVE");
+        System.out.println("Descuento LLAVE: $" + (saldoAntes - ana.getSaldo()));
+        
         new CobroCuotaManejo().cobrarMensual(List.of(ana, luis));
         // new CobroCuotaManejo().cobrarMensual(List.of(ana, luis, cdtAna)); // NO compila
         
