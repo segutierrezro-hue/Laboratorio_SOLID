@@ -69,8 +69,14 @@ TransaccionService coordina los pasos de una transferencia entre dos cuenta
 
 En esa frase no aparece la "y" uniendo trabajos distintos, ya no valida el formato del comprobante, ni arma el SMS, ni calcula comisiones por su cuenta. Si el área legal pide cambiar el formato del comprobante, solo hay que hacer los cambios en ComprobanteConsola.java.
 
-### 2.2 Punto de control O
+## 2.2 Punto de control O
 
 Si mañana llega un tipo de transferencia nuevo, hay que crear un archivo nuevo por ejemplo ComisionXxx.java, que implementa PoliticaComision y agregar una línea al Map en Main.java, donde el único archivo existente que se modifica es Main.java, que es justo el punto donde se arma el sistema en cuanto al TransaccionService no se toca.
+
+## 2.3 Punto de control L
+
+El problema ahora se detecta al compilar porque CDT ya no es una CuentaConRetiros, así que si alguien intenta meter un CDT en la lista de cobrarMensual, el compilador lo rechaza antes de que el programa corra y esto es mejor que detectarlo al ejecutar, porque el error aparece en el computador del desarrollador y no en la madrugada, con un proceso de un millón de cuentas a medias.
+
+La propuesta de "envolver el retiro en un try/catch e ignorar los CDT" no resuelve el problema de diseño ya que el CDT seguiría diciendo que es una cuenta de la que se puede retirar, y todo el que use cuentas tendría que acordarse de capturar la excepción. Además, ese try/catch también escondería errores reales, como un fallo de saldo en otra cuenta.
 
 

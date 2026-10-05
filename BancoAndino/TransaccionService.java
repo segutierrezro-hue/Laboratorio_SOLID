@@ -11,7 +11,7 @@ public class TransaccionService {
         this.comisiones = comisiones;
     }
 
-    public void transferir(Cuenta origen, Cuenta destino, double monto, String tipo) {
+    public void transferir(CuentaConRetiros origen, Cuenta destino, double monto, String tipo) {
         if (monto <= 0) throw new IllegalArgumentException("Monto inválido");
         if (monto > 5_000_000) throw new IllegalArgumentException("Supera el tope diario");
 

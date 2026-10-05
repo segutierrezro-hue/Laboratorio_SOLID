@@ -8,12 +8,13 @@ public class CDT extends Cuenta {
         this.vencimiento = vencimiento;
     }
 
-    @Override
-    public void retirar(double monto) {
-        if (LocalDate.now().isBefore(vencimiento)) {
-            throw new UnsupportedOperationException(
-                "Un CDT no permite retiros antes del vencimiento");
+    // El CDT no se "retira": se liquida completo al vencer.
+    public double liquidar(LocalDate hoy) {
+        if (hoy.isBefore(vencimiento)) {
+            throw new IllegalStateException("El CDT aún no vence");
         }
-        super.retirar(monto);
+        double total = saldo;
+        saldo = 0;
+        return total;
     }
 }
