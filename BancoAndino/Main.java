@@ -11,12 +11,18 @@ public class Main {
             "INTERNACIONAL", new ComisionInternacional(),
             "LLAVE", new ComisionLlave());
 
+        ValidadorMonto validador = new ValidadorMonto();
+        RepositorioTransacciones repositorio = new PostgresRepositorio();
+        EmisorComprobante comprobante = new ComprobanteConsola();
+        Notificador notificador = new NotificadorMultiple(List.of(new SmsGateway(), new PushGateway()));
+        Auditoria auditoria = new AuditoriaMultiple(List.of(new AuditoriaConsola(), new AntifraudeConsola()));
+
         TransaccionService servicio = new TransaccionService(
-            comisiones,
-            new PostgresRepositorio(),
-            new ComprobanteConsola(),
-            new NotificadorMultiple(List.of(new SmsGateway(), new PushGateway())),
-            new AuditoriaMultiple(List.of(new AuditoriaConsola(), new AntifraudeConsola())));
+            validador, comisiones, repositorio, comprobante, notificador, auditoria);
+
+        // R6: el pago de servicios reutiliza las mismas piezas que las transferencias
+        PagoServiciosService pagos = new PagoServiciosService(
+            validador, new ComisionPagoServicios(), repositorio, comprobante, notificador, auditoria);
 
         /* ===== PRUEBA TEMPORAL DEL PUNTO D (borrar después) =====
         TransaccionService servicioDePrueba = new TransaccionService(
@@ -51,6 +57,12 @@ public class Main {
         } catch (IllegalStateException e) {
             System.out.println("Retiro rechazado: " + e.getMessage() + " | saldo: $" + nino.getSaldo());
         }
+
+        // R6: pago de servicios públicos, comisión fija de $1.500
+        // (pagos.pagar(cdtAna, ...) no compila: un CDT no puede pagar servicios)
+        saldoAntes = luis.getSaldo();
+        pagos.pagar(luis, "EAAB-FACT-778812", 184_300);
+        System.out.println("Descuento pago de servicios: $" + (saldoAntes - luis.getSaldo()));
 
         new CobroCuotaManejo().cobrarMensual(List.of(ana, luis, nino));
         

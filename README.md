@@ -104,3 +104,76 @@ Para encontrar estas pruebas se reviso el historial de los commits a través de 
 
 **¿Qué habría pasado en el bloque 1?** No habríamos podido escribirlas, porque cada prueba de transferencia habría tenido que conectarse a Oracle y mandar un SMS real y tampoco habríamos podido comprobar que "no se guardó nada ni se notificó" cuando falta saldo, porque no había forma de observar ni reemplazar esos efectos.
 
+
+
+## 5 Revisión cruzada
+
+> Todos los cambios de esta sección (implementación de R6, pruebas y lista de revisión) están en la rama `revision-cruzada`.
+
+### R6 Pago de servicios públicos
+
+**Implementación.** El pago de una factura reutiliza las mismas piezas que ya existían para las transferencias, sin copiar la lógica de TransaccionService:
+
+| Pieza | Estado | Uso en R6 |
+|---|---|---|
+| PoliticaComision | Existía | Se creó ComisionPagoServicios (comisión fija de $1.500) implementando la misma interfaz. |
+| RepositorioTransacciones (PostgresRepositorio) | Existía, sin cambios | Guarda el pago con la referencia de la factura como destino. |
+| EmisorComprobante (ComprobanteConsola) | Existía, sin cambios | Imprime el comprobante con la referencia de la factura como destino. |
+| Notificador (NotificadorMultiple: SMS + push) | Existía, sin cambios | Notifica al cliente. |
+| Auditoria (AuditoriaMultiple: auditoría + antifraude) | Existía, sin cambios | Registra el pago en auditoría y antifraude. |
+| CuentaConRetiros | Existía, sin cambios | Es el tipo del origen del pago, así que un CDT no puede pagar servicios y el error se detecta **al compilar** (`CDT cannot be converted to CuentaConRetiros`). |
+| ValidadorMonto | **Nuevo (extraído)** | Las validaciones de monto (monto > 0 y tope de $5.000.000) estaban escritas dentro de `TransaccionService.transferir`. Para no copiarlas se extrajeron a esta clase y ahora la usan los dos servicios. |
+| PagoServiciosService | **Nuevo** | Orquesta el pago: valida, calcula comisión, retira de la cuenta, guarda, emite comprobante, notifica y audita. |
+
+**Archivos nuevos:** ValidadorMonto.java, ComisionPagoServicios.java, PagoServiciosService.java, PagoServiciosServiceTest.java.
+
+**Archivos existentes modificados:**
+- TransaccionService.java: las dos líneas de validación se reemplazaron por `validador.validar(monto)` y se agregó un constructor que recibe el ValidadorMonto. El constructor anterior se conservó (delega con un `new ValidadorMonto()`), así las pruebas existentes no tuvieron que cambiar. El comportamiento de `transferir` es el mismo.
+- Main.java: armado del PagoServiciosService con las mismas dependencias que el TransaccionService y ejemplo de uso.
+
+**Criterio de aceptación:** un pago de $184.300 descuenta $185.800 de la cuenta, guarda la transacción e imprime el comprobante con la referencia de la factura como destino. Se verifica en la salida del programa y en la prueba `PagoServiciosServiceTest`:
+
+```text
+[POSTGRES] INSERT INTO transacciones VALUES ('001-2', 'EAAB-FACT-778812', 184300.0, 1500.0)
+===== BANCO ANDINO - COMPROBANTE =====
+Origen: 001-2
+Destino: EAAB-FACT-778812
+Monto: $184300.0
+Comisión: $1500.0
+======================================
+[SMS] Para Luis: Pagaste $184300.0 de la factura EAAB-FACT-778812
+[PUSH] Enviando notificación a la app de Luis: Pagaste $184300.0 de la factura EAAB-FACT-778812
+[AUDITORIA] ... PAGO_SERVICIOS 001-2 -> EAAB-FACT-778812 $184300.0
+[ANTIFRAUDE] Transacción enviada a análisis: PAGO_SERVICIOS 001-2 -> EAAB-FACT-778812 $184300.0
+Descuento pago de servicios: $185800.0
+```
+
+**Pruebas:** las 5 pruebas existentes de TransaccionServiceTest siguen pasando sin modificaciones y se agregaron 2 pruebas en PagoServiciosServiceTest (criterio de aceptación y rechazo por monto inválido), que reutilizan los dobles de prueba RepoEnMemoria, NotificadorEspia y AuditoriaNula de la otra pareja. Total: 7 de 7 pruebas pasan.
+
+**¿Cuántas piezas ya existían?** De las 8 piezas que necesitaba el pago, 6 ya existían y se usaron tal como estaban. Solo hubo que crear la política de comisión nueva (lo esperado por el diseño abierto/cerrado) y extraer la validación de monto, que era la única regla de negocio que seguía escrita directamente dentro de `transferir`.
+
+### Lista de revisión
+
+| Lista de revisión | Sí | No |
+|---|:---:|:---:|
+| Entendimos qué hace cada clase leyendo solo su nombre y sus métodos públicos. | X | |
+| Pudimos reutilizar piezas existentes sin copiar y pegar código. | X | |
+| Implementamos el requerimiento sin modificar la lógica de clases existentes. | | X |
+| No encontramos métodos vacíos ni que lancen "no aplica". | X | |
+| No encontramos if/switch por tipo que tuvimos que extender. | X | |
+| Las pruebas existentes siguieron pasando después de nuestro cambio. | X | |
+| No encontramos abstracciones innecesarias (interfaces que no aportan). | X | |
+
+**Lo mejor del diseño:**
+- La inyección de dependencias por constructor: el repositorio, el comprobante, el notificador y la auditoría se pudieron pasar tal cual al nuevo servicio, y probarlo con dobles de prueba fue inmediato.
+- NotificadorMultiple y AuditoriaMultiple: el pago quedó con SMS + push y auditoría + antifraude sin escribir nada adicional.
+- El Map de PoliticaComision: la comisión del pago fue solo una clase nueva de una línea.
+- La jerarquía Cuenta / CuentaConRetiros / CDT: la regla "un CDT no puede pagar servicios" se cumple gracias al tipo del parámetro y la detecta el compilador, sin escribir ningún `if`.
+- Los dobles de prueba están como clases estáticas dentro del test, así que se pudieron reutilizar desde otra clase de prueba.
+
+**Lo que nos costó entender o extender:**
+- Las validaciones de monto estaban escritas dentro de `transferir`, así que para reutilizarlas sin copiarlas tuvimos que modificar TransaccionService (por eso el "No" en la lista). Es un cambio pequeño y no altera el comportamiento, pero si la validación hubiera sido desde el inicio una pieza aparte, el requerimiento se habría implementado sin tocar ninguna clase existente fuera de Main.
+- TransaccionService solo sabe hacer transferencias entre dos cuentas (el destino es una `Cuenta` en la que se deposita), así que no se pudo reutilizar para un pago cuyo destino es una referencia de factura. La secuencia "guardar → comprobante → notificar → auditar" quedó repetida en los dos servicios (son llamadas a las mismas piezas, no lógica copiada, pero si mañana se agrega un paso a toda transacción habría que agregarlo en ambos). Sugerimos extraer esa secuencia a una pieza común.
+- El antifraude implementa la interfaz `Auditoria`. Funciona, pero el nombre confunde: al principio no era evidente que el antifraude ya estaba incluido en la "auditoría". Un nombre más general (por ejemplo `RegistroTransaccion` u `ObservadorTransaccion`) lo haría más claro.
+- Los tipos de transferencia son Strings ("OTRO_BANCO", "LLAVE"), así que un error de escritura solo se detecta al ejecutar.
+- El README no explica cómo compilar ni ejecutar las pruebas (hubo que deducir el uso del jar de JUnit en lib/), y en Main queda código comentado de una prueba temporal del punto D.

@@ -1,6 +1,7 @@
 import java.util.Map;
 
 public class TransaccionService {
+    private final ValidadorMonto validador;
     private final Map<String, PoliticaComision> comisiones;
     private final RepositorioTransacciones repositorio;
     private final EmisorComprobante comprobante;
@@ -12,6 +13,16 @@ public class TransaccionService {
                               EmisorComprobante comprobante,
                               Notificador notificador,
                               Auditoria auditoria) {
+        this(new ValidadorMonto(), comisiones, repositorio, comprobante, notificador, auditoria);
+    }
+
+    public TransaccionService(ValidadorMonto validador,
+                              Map<String, PoliticaComision> comisiones,
+                              RepositorioTransacciones repositorio,
+                              EmisorComprobante comprobante,
+                              Notificador notificador,
+                              Auditoria auditoria) {
+        this.validador = validador;
         this.comisiones = comisiones;
         this.repositorio = repositorio;
         this.comprobante = comprobante;
@@ -20,8 +31,7 @@ public class TransaccionService {
     }
 
     public void transferir(CuentaConRetiros origen, Cuenta destino, double monto, String tipo) {
-        if (monto <= 0) throw new IllegalArgumentException("Monto inválido");
-        if (monto > 5_000_000) throw new IllegalArgumentException("Supera el tope diario");
+        validador.validar(monto);
 
         PoliticaComision politica = comisiones.get(tipo);
         if (politica == null) {
