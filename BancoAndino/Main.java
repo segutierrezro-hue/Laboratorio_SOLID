@@ -16,7 +16,7 @@ public class Main {
             new OracleRepositorio(),
             new ComprobanteConsola(),
             new NotificadorMultiple(List.of(new SmsGateway(), new PushGateway())),
-            new AuditoriaConsola());
+            new AuditoriaMultiple(List.of(new AuditoriaConsola(), new AntifraudeConsola())));
 
         /* ===== PRUEBA TEMPORAL DEL PUNTO D (borrar después) =====
         TransaccionService servicioDePrueba = new TransaccionService(
