@@ -1,17 +1,25 @@
-import java.time.LocalDateTime;
+import java.util.Map;
 
 public class TransaccionService {
+    private final Map<String, PoliticaComision> comisiones;
     private final OracleRepositorio repositorio = new OracleRepositorio();
     private final SmsGateway sms = new SmsGateway();
-    private final CalculadoraComision calculadora = new CalculadoraComision();
     private final ComprobanteConsola comprobante = new ComprobanteConsola();
     private final AuditoriaConsola auditoria = new AuditoriaConsola();
+
+    public TransaccionService(Map<String, PoliticaComision> comisiones) {
+        this.comisiones = comisiones;
+    }
 
     public void transferir(Cuenta origen, Cuenta destino, double monto, String tipo) {
         if (monto <= 0) throw new IllegalArgumentException("Monto inválido");
         if (monto > 5_000_000) throw new IllegalArgumentException("Supera el tope diario");
 
-        double comision = calculadora.calcular(tipo, monto);
+        PoliticaComision politica = comisiones.get(tipo);
+        if (politica == null) {
+            throw new IllegalArgumentException("Tipo de transferencia desconocido");
+        }
+        double comision = politica.calcular(monto);
 
         origen.retirar(monto + comision);
         destino.depositar(monto);
