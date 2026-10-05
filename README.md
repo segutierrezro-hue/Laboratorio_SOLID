@@ -62,3 +62,9 @@ Además que aunque el cálculo de la comisión es lo único que queremos probar,
 ## 1.4 Diagrama de clases del código original
 
 ![Diagrama de clases del código original](src\diagramas\UML.png)
+
+## 2.1 Punto de control S
+
+TransaccionService coordina los pasos de una transferencia entre dos cuenta
+
+En esa frase no aparece la "y" uniendo trabajos distintos, ya no valida el formato del comprobante, ni arma el SMS, ni calcula comisiones por su cuenta. Si el área legal pide cambiar el formato del comprobante, solo hay que hacer los cambios en ComprobanteConsola.java.
