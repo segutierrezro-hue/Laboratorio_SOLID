@@ -13,7 +13,7 @@ public class Main {
 
         TransaccionService servicio = new TransaccionService(
             comisiones,
-            new OracleRepositorio(),
+            new PostgresRepositorio(),
             new ComprobanteConsola(),
             new NotificadorMultiple(List.of(new SmsGateway(), new PushGateway())),
             new AuditoriaMultiple(List.of(new AuditoriaConsola(), new AntifraudeConsola())));
