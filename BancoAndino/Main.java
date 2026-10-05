@@ -15,7 +15,7 @@ public class Main {
             comisiones,
             new OracleRepositorio(),
             new ComprobanteConsola(),
-            new SmsGateway(),
+            new NotificadorMultiple(List.of(new SmsGateway(), new PushGateway())),
             new AuditoriaConsola());
 
         /* ===== PRUEBA TEMPORAL DEL PUNTO D (borrar después) =====
