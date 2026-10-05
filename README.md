@@ -104,6 +104,58 @@ Para encontrar estas pruebas se reviso el historial de los commits a través de 
 
 **¿Qué habría pasado en el bloque 1?** No habríamos podido escribirlas, porque cada prueba de transferencia habría tenido que conectarse a Oracle y mandar un SMS real y tampoco habríamos podido comprobar que "no se guardó nada ni se notificó" cuando falta saldo, porque no había forma de observar ni reemplazar esos efectos.
 
+## 4. "Negocio pidió cambios"
+
+Con el diseño ya refactorizado (bloques 1 a 3) recibimos cinco requerimientos nuevos de la Gerencia de Canales Digitales. Para cada uno estimamos primero cuántos archivos existentes habría que modificar en el código original (commit `bloque-0-codigo-base`), luego lo implementamos sobre el código refactorizado y registramos lo que realmente se modificó.
+
+### 4.1 Tabla de resultados
+
+| Req | Archivos a modificar en el código original (estimado) | Archivos existentes modificados (real) | Archivos nuevos | ¿Se rompió alguna prueba? |
+|-----|:---:|:---:|:---:|:---:|
+| R1 Transferencias por llave | 1 | 1 | 1 | No |
+| R2 Cuenta infantil | 2 | 3 | 1 | No |
+| R3 Notificaciones push | 1 | 1 | 2 | No |
+| R4 Sistema antifraude | 1 | 1 | 2 | No |
+| R5 Migración a PostgreSQL | 1 | 1 | 1 | No |
+| **Total** | **6** | **7** | **7** | **0** |
+
+Las pruebas del bloque 3 (`TransaccionServiceTest`, 5 pruebas) se ejecutaron después de cada requerimiento y pasaron las 5 en todos los casos. No fue necesario modificar el archivo de pruebas.
+
+**Lectura de la tabla.** El total de archivos modificados no bajó (6 estimados contra 7 reales), así que el beneficio del diseño no está en el conteo bruto sino en *cuáles* archivos se tocaron. En el código original, `TransaccionService` (la clase que mueve el dinero) habría tenido que modificarse en cuatro de los cinco requerimientos (R1, R3, R4 y R5). En el código refactorizado se modificó **0 veces**. Casi todos los archivos modificados fueron `Main.java`, que es el único lugar donde se arma el sistema (qué comisiones, qué repositorio, qué canales de notificación).
+
+### 4.2 Detalle por requerimiento
+
+**R1 — Transferencias por llave.**
+- *Estimado en el original:* 1 archivo. Habría que agregar un caso `LLAVE` al `switch` de `TransaccionService.transferir`.
+- *Real:* se creó `ComisionLlave.java` (implementa `PoliticaComision` y devuelve comisión 0) y se registró `"LLAVE"` en el `Map` de `Main.java`.
+- *Criterio de aceptación:* una transferencia `LLAVE` de $50.000 descuenta exactamente $50.000 de la cuenta de origen (verificado al ejecutar el programa).
+
+**R2 — Cuenta infantil.**
+- *Estimado en el original:* 2 archivos. `Main` para usar la cuenta y `CobroCuotaManejo`, porque la cuota se cobra con `retirar` y chocaría con el límite diario.
+- *Real:* se creó `CuentaInfantil.java`, que extiende `CuentaConRetiros` y sobrescribe `retirar` para rechazar retiros que superen $200.000 en el mismo día (el reloj es inyectable para poder probar el cambio de día). Se modificaron tres archivos existentes:
+  - `CuentaConRetiros.java`: se agregó el método `cobrar`, para los cargos del banco.
+  - `CobroCuotaManejo.java`: ahora llama a `cobrar` en lugar de `retirar`.
+  - `Main.java`: demostración del criterio de aceptación.
+- *Por qué se separó `cobrar` de `retirar`:* el enunciado dice que a la cuenta infantil se le cobra la cuota "como a cualquier cuenta". Si el cobro nocturno usara `retirar`, un niño que ya retiró $200.000 ese día haría fallar el proceso a mitad de camino, el mismo problema que documentamos con el CDT en el experimento 1.2.1. Por eso esta es la única vez que se tocó más de lo esperado: fue una decisión de diseño, no una limitación del código.
+- *Criterio de aceptación:* con $150.000 ya retirados, un retiro de $60.000 se rechaza y el saldo no cambia (verificado). También se verificó el tope exacto de $200.000 (permitido), $1 de más (rechazado) y que los depósitos no tienen límite.
+
+**R3 — Notificaciones push.**
+- *Estimado en el original:* 1 archivo (`TransaccionService`, agregando el envío del push junto al SMS).
+- *Real:* se crearon `PushGateway.java` (implementa `Notificador`) y `NotificadorMultiple.java` (un `Notificador` que reparte el mensaje a varios canales). En `Main.java` se cambió `new SmsGateway()` por `new NotificadorMultiple(List.of(new SmsGateway(), new PushGateway()))`.
+- *Criterio de aceptación:* por cada transferencia exitosa aparecen un mensaje `[SMS]` y uno `[PUSH]`.
+
+**R4 — Sistema antifraude.**
+- *Estimado en el original:* 1 archivo (`TransaccionService`, agregando la llamada al antifraude).
+- *Real:* se crearon `AntifraudeConsola.java` y `AuditoriaMultiple.java` (una `Auditoria` que reparte el registro a varios destinos). En `Main.java` se cambió `new AuditoriaConsola()` por `new AuditoriaMultiple(List.of(new AuditoriaConsola(), new AntifraudeConsola()))`. La auditoría actual no se modificó.
+- *Criterio de aceptación:* cada transferencia exitosa genera un `[AUDITORIA]` y un `[ANTIFRAUDE]`, y una transferencia rechazada no genera ninguno (verificado con un saldo insuficiente).
+
+**R5 — Migración a PostgreSQL.**
+- *Estimado en el original:* 1 archivo (`TransaccionService`, reemplazando `new OracleRepositorio()`).
+- *Real:* se creó `PostgresRepositorio.java` (implementa `RepositorioTransacciones`, salida `[POSTGRES]`) y en `Main.java` se cambió `new OracleRepositorio()` por `new PostgresRepositorio()`. `OracleRepositorio.java` no se borró ni se modificó, y volver atrás es cambiar esa misma línea.
+- *Criterio de aceptación:* el programa guarda en PostgreSQL (la salida muestra `[POSTGRES]` y ninguna línea `[ORACLE]`) y el archivo de pruebas quedó exactamente igual.
+
+
+
 
 ## 5 Revisión cruzada
 
