@@ -42,9 +42,17 @@ public class Main {
         double saldoAntes = ana.getSaldo();
         servicio.transferir(ana, luis, 50_000, "LLAVE");
         System.out.println("Descuento LLAVE: $" + (saldoAntes - ana.getSaldo()));
-        
-        new CobroCuotaManejo().cobrarMensual(List.of(ana, luis));
-        // new CobroCuotaManejo().cobrarMensual(List.of(ana, luis, cdtAna)); // NO compila
+
+        // R2: cuenta infantil, retiros máximo $200.000 por día
+        CuentaInfantil nino = new CuentaInfantil("INF-1", "Sofía", 1_000_000);
+        nino.retirar(150_000);
+        try {
+            nino.retirar(60_000);
+        } catch (IllegalStateException e) {
+            System.out.println("Retiro rechazado: " + e.getMessage() + " | saldo: $" + nino.getSaldo());
+        }
+
+        new CobroCuotaManejo().cobrarMensual(List.of(ana, luis, nino));
         
         List<Extractable> productos =
             List.of(new TarjetaCredito(3_000_000), new CreditoVivienda(120_000_000));
