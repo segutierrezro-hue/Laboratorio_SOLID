@@ -228,3 +228,83 @@ Descuento pago de servicios: $185800.0
 - El antifraude implementa la interfaz `Auditoria`. Funciona, pero el nombre confunde: al principio no era evidente que el antifraude ya estaba incluido en la "auditoría". Un nombre más general (por ejemplo `RegistroTransaccion` u `ObservadorTransaccion`) lo haría más claro.
 - Los tipos de transferencia son Strings ("OTRO_BANCO", "LLAVE"), así que un error de escritura solo se detecta al ejecutar.
 - El README no explica cómo compilar ni ejecutar las pruebas (hubo que deducir el uso del jar de JUnit en lib/), y en Main queda código comentado de una prueba temporal del punto D.
+
+
+
+
+## 6 Cierre
+
+### 6.1 Diagramas de clases: antes y después
+
+| Código original (bloque 1) | Código final (bloque 6) |
+|:---:|:---:|
+| [![Diagrama del código original](src/diagramas/UML.png)](src/diagramas/UML.png) | [![Diagrama del código final](src/diagramas/UML_final.png)](src/diagramas/UML_final.png) |
+
+*(Haz clic en cada imagen para verla completa. El fuente del diagrama final está en `src/diagramas/UML_final.puml`.)*
+
+En el diagrama original, las relaciones en rojo marcaban los problemas: dependencias de clases concretas (`OracleRepositorio`, `SmsGateway`), un `CDT` que heredaba un `retirar` imposible y un `ProductoBancario` con métodos que no aplicaban. En el final esas relaciones pasaron a verde: `TransaccionService` solo depende de interfaces, `CDT` ya no es una `CuentaConRetiros`, `ProductoBancario` se dividió en interfaces pequeñas y `Main` es el único lugar que crea las piezas concretas con `new`.
+
+### 6.2 Tabla comparativa
+
+| Métrica | Antes | Después |
+|---|---|---|
+| Líneas del método `transferir` | 36 (líneas 7 a 42) | 19 (líneas 22 a 40, mismo criterio).  |
+| Razones distintas por las que `TransaccionService` podría cambiar | 7 (validación, comisión, movimiento del dinero, persistencia, comprobante, SMS y auditoría) | 3: validación del monto y el tope, escoger la política según el tipo, y el orden de los pasos de la transferencia. Las otras 5 salieron a clases propias. |
+| Clases concretas que `TransaccionService` crea con `new` | 2 (`OracleRepositorio` y `SmsGateway`) | 0 (solo quedan `new IllegalArgumentException`). |
+| Métodos vacíos o que lanzan "no aplica" | `CDT.retirar` lanzaba excepción, y `depositar`/`retirar` de `TarjetaCredito` y `CreditoVivienda` no aplicaban  | 0 en el código de producción. `CDT.liquidar` lanza excepción si no ha vencido, pero es una precondición real, no un método que "no aplica". |
+| ¿Se puede probar `transferir` sin Oracle ni SMS? | No | Sí: 5 pruebas con dobles en memoria, todas pasan en 95 ms (ver `src/imagenes/TiemposTest.png`). |
+| Número total de archivos | 11 `.java`  | 34 `.java`: 33 de producción (9 interfaces) y 1 de pruebas. |
+| Archivos existentes modificados en total en el bloque 4 | 6  | 7 modificaciones en solo 3 archivos distintos: `Main.java` (5 veces), `CuentaConRetiros.java` y `CobroCuotaManejo.java` (ambos en R2). `TransaccionService` pasó de 4 modificaciones estimadas a 0. |
+
+Estas métricas corresponden a la rama principal (R1 a R5). R6 vive en la rama `revision-cruzada`.
+
+### 6.3 Reflexión
+
+**(a) El código final tiene muchos más archivos que el original. ¿Es eso un problema? ¿En qué situación sí lo sería?**
+
+No por sí solo. Pasamos de 11 a 33 archivos de producción, pero lo que importa es cuántos hay que abrir para un cambio: los cinco requerimientos tocaron solo 3 archivos distintos, y R1 fue un archivo nuevo de una línea útil. Sí sería un problema con interfaces de una sola implementación y sin razón para cambiar (la otra pareja no encontró ninguna), en un programa pequeño o desechable, o si la lógica quedara tan repartida que no se pudiera seguir una transferencia. Una señal de alerta es que `Main` ya arma 5 dependencias a mano.
+
+**(b) ¿En qué requerimiento del bloque 4 se notó más la diferencia entre el código original y el refactorizado? ¿Por qué?**
+
+En **R5 (PostgreSQL)**. En el original había que abrir `TransaccionService` para cambiar el `new OracleRepositorio()`, y "las pruebas no cambian" ni se habría podido comprobar, porque no se podía probar `transferir` sin Oracle. En el refactorizado fue una línea en `Main`, Oracle quedó intacto para devolverse y las pruebas quedaron idénticas. R3 y R4 muestran lo mismo: en el original habrían engordado el método de 36 líneas.
+
+**(c) ¿Hubo algún requerimiento que su diseño no aguantó bien? ¿Qué cambiarían?**
+
+Sí, dos. En **R2 (cuenta infantil)** tuvimos que modificar `CuentaConRetiros` y `CobroCuotaManejo` (3 archivos contra 2 estimados), porque el diseño no distinguía entre un retiro del cliente y un cargo del banco. Si hubiéramos separado `cobrar` de `retirar` desde el bloque 2, R2 solo habría necesitado `CuentaInfantil.java`. En **R6 (revisión cruzada)** hubo que modificar `TransaccionService` para reutilizar las validaciones de monto, que seguían dentro de `transferir`. Cambiaríamos tres cosas: extraer un `ValidadorMonto`, extraer a una pieza común la secuencia "guardar, comprobante, notificar, auditar", y reemplazar los tipos de transferencia escritos como `String` por un tipo que el compilador pueda revisar.
+
+**(d) ¿Qué les dijo la otra pareja en la revisión cruzada? ¿Están de acuerdo?**
+
+
+**Lo que les costó entender o extender:**
+
+| Lo que dijeron | ¿De acuerdo? | Qué hacemos |
+|---|:---:|---|
+| Las validaciones de monto estaban dentro de `transferir`, así que modificaron `TransaccionService`. | Sí | Explica las 19 líneas de `transferir`. Extraeríamos un `ValidadorMonto`. |
+| `TransaccionService` solo sirve para destinos que son una `Cuenta`, y la secuencia guardar, comprobante, notificar y auditar quedó repetida en los dos servicios. | En parte | Son llamadas a las mismas piezas, no lógica copiada, pero un paso nuevo habría que agregarlo en ambos. Extraeríamos la secuencia común. |
+| El antifraude implementa `Auditoria` y el nombre confunde. | Sí | Lo anotamos en la sección 4.4: así no cambiamos el constructor que usan las pruebas. `ObservadorTransaccion` sería más claro, pero obligaría a actualizar las pruebas. |
+| Los tipos de transferencia son `String` y un error de escritura solo se detecta al ejecutar. | Sí | Es un riesgo real; un tipo enumerado también obligaría a actualizar las pruebas. |
+| El README no explica cómo compilar ni ejecutar las pruebas. | Sí | Lo agregamos en la sección 6.4. |
+| En `Main` queda código comentado de una prueba temporal del punto D. | En parte | Es la evidencia citada en la sección 2.5. Con las pruebas del bloque 3 ya es redundante; lo conservamos solo como evidencia histórica. |
+
+**(e) Si tuvieran que convencer a su jefe de invertir dos semanas en refactorizar el backend real del banco, ¿qué argumento usarían, basándose en los datos de hoy?**
+
+Que la inversión se paga en el cambio que el negocio ya demostró que pide. **4 de los 5 requerimientos** (llave, notificaciones, antifraude y base de datos) habrían obligado a abrir la clase que mueve el dinero; con el diseño refactorizado se modificó **0 veces** y los cinco tocaron solo 3 archivos distintos. Antes no se podía probar una transferencia sin Oracle ni SMS reales; ahora 5 pruebas verifican la lógica en 95 ms. Y otra pareja implementó un requerimiento desconocido reutilizando 6 de las 8 piezas que necesitaba. Un cambio como R5 (dejar de pagar la licencia de Oracle) pasa a ser una línea en `Main` en vez de una modificación riesgosa del núcleo.
+
+También le diríamos lo que cuesta: el código pasó de 11 a 33 archivos, `transferir` bajó de 36 a 19 líneas (no a las 5-8 esperadas) y en R2 el diseño no aguantó del todo. No medimos horas, así que no prometemos que el backend real se refactorice en dos semanas. Propondríamos hacerlo de forma incremental: primero pruebas sobre el comportamiento actual, y luego separar lo que más cambia (comisiones, canales de notificación y persistencia), que fue justo lo que tocaron R1, R3, R4 y R5.
+
+### 6.4 Cómo compilar y ejecutar
+
+Desde la carpeta raíz del proyecto (la que contiene `BancoAndino/` y `lib/`), con JDK 17 o superior:
+
+```bash
+# Compilar (incluye las pruebas, por eso se necesita el jar de JUnit)
+javac -encoding UTF-8 -cp lib/junit-platform-console-standalone-6.1.3.jar -d out BancoAndino/*.java
+
+# Ejecutar el programa
+java -cp out Main
+
+# Ejecutar las pruebas unitarias
+java -jar lib/junit-platform-console-standalone-6.1.3.jar execute --class-path out --scan-class-path
+```
+
+Resultado esperado de las pruebas: `5 tests successful` y `0 tests failed`. En Windows, si la consola no muestra bien las tildes, ejecuta el programa con `java -Dstdout.encoding=UTF-8 -cp out Main`.
