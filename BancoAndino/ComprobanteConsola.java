@@ -1,4 +1,5 @@
-public class ComprobanteConsola {
+public class ComprobanteConsola implements EmisorComprobante {
+    @Override
     public void emitir(String origen, String destino, double monto, double comision) {
         System.out.println("===== BANCO ANDINO - COMPROBANTE =====");
         System.out.println("Origen: " + origen);

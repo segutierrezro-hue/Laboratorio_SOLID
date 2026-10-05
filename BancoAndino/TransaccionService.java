@@ -2,13 +2,21 @@ import java.util.Map;
 
 public class TransaccionService {
     private final Map<String, PoliticaComision> comisiones;
-    private final OracleRepositorio repositorio = new OracleRepositorio();
-    private final SmsGateway sms = new SmsGateway();
-    private final ComprobanteConsola comprobante = new ComprobanteConsola();
-    private final AuditoriaConsola auditoria = new AuditoriaConsola();
+    private final RepositorioTransacciones repositorio;
+    private final EmisorComprobante comprobante;
+    private final Notificador notificador;
+    private final Auditoria auditoria;
 
-    public TransaccionService(Map<String, PoliticaComision> comisiones) {
+    public TransaccionService(Map<String, PoliticaComision> comisiones,
+                              RepositorioTransacciones repositorio,
+                              EmisorComprobante comprobante,
+                              Notificador notificador,
+                              Auditoria auditoria) {
         this.comisiones = comisiones;
+        this.repositorio = repositorio;
+        this.comprobante = comprobante;
+        this.notificador = notificador;
+        this.auditoria = auditoria;
     }
 
     public void transferir(CuentaConRetiros origen, Cuenta destino, double monto, String tipo) {
@@ -26,7 +34,8 @@ public class TransaccionService {
 
         repositorio.guardarTransaccion(origen.getNumero(), destino.getNumero(), monto, comision);
         comprobante.emitir(origen.getNumero(), destino.getNumero(), monto, comision);
-        sms.enviar(origen.getTitular(), "Transferiste $" + monto + " a la cuenta " + destino.getNumero());
+        notificador.notificar(origen.getTitular(),
+            "Transferiste $" + monto + " a la cuenta " + destino.getNumero());
         auditoria.registrar(tipo, origen.getNumero(), destino.getNumero(), monto);
     }
 }

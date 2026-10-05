@@ -4,22 +4,42 @@ import java.util.Map;
 
 public class Main {
     public static void main(String[] args) {
+
         Map<String, PoliticaComision> comisiones = Map.of(
             "MISMO_BANCO", new ComisionMismoBanco(),
             "OTRO_BANCO", new ComisionOtroBanco(),
             "INTERNACIONAL", new ComisionInternacional());
 
+        TransaccionService servicio = new TransaccionService(
+            comisiones,
+            new OracleRepositorio(),
+            new ComprobanteConsola(),
+            new SmsGateway(),
+            new AuditoriaConsola());
+
+        /* ===== PRUEBA TEMPORAL DEL PUNTO D (borrar después) =====
+        TransaccionService servicioDePrueba = new TransaccionService(
+            comisiones,
+            (o, d, m, c) -> System.out.println("[FALSO] repositorio: no se conectó a Oracle"),
+            (o, d, m, c) -> { },
+            (dest, msg) -> System.out.println("[FALSO] notificador: no se envió SMS"),
+            (t, o, d, m) -> { });
+
+        CuentaConRetiros origenPrueba = new CuentaAhorros("TEST-1", "Prueba", 1_000_000);
+        CuentaConRetiros destinoPrueba = new CuentaAhorros("TEST-2", "Prueba", 0);
+        servicioDePrueba.transferir(origenPrueba, destinoPrueba, 100_000, "OTRO_BANCO");
+        System.out.println("Saldo origen de prueba: " + origenPrueba.getSaldo());*/
+        
+        // ---- Uso ----
         CuentaConRetiros ana = new CuentaAhorros("001-1", "Ana", 2_000_000);
         CuentaConRetiros luis = new CuentaAhorros("001-2", "Luis", 500_000);
         Cuenta cdtAna = new CDT("CDT-9", "Ana", 10_000_000, LocalDate.now().plusMonths(6));
 
-        TransaccionService servicio = new TransaccionService(comisiones);
         servicio.transferir(ana, luis, 150_000, "OTRO_BANCO");
 
         new CobroCuotaManejo().cobrarMensual(List.of(ana, luis));
         // new CobroCuotaManejo().cobrarMensual(List.of(ana, luis, cdtAna)); // NO compila
-        new GeneradorExtractos().imprimir(List.of(ana, new TarjetaCredito(3_000_000), new CreditoVivienda(120_000_000)));
-
+        
         List<Extractable> productos =
             List.of(new TarjetaCredito(3_000_000), new CreditoVivienda(120_000_000));
         new GeneradorExtractos().imprimir(productos);
